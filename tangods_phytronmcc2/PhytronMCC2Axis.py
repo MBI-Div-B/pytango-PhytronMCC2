@@ -27,21 +27,13 @@ class InitiatorType(IntEnum):
 
 class PhytronMCC2Axis(Device):
     # device properties
-    CtrlDevice = device_property(
-        dtype="str", default_value="domain/family/member"
-    )
+    CtrlDevice = device_property(dtype="str", default_value="domain/family/member")
 
-    Axis = device_property(
-        dtype="int16"
-    )
+    Axis = device_property(dtype="int16")
 
-    Address = device_property(
-        dtype="int16"
-    )
+    Address = device_property(dtype="int16")
 
-    Alias = device_property(
-        dtype="str"
-    )
+    Alias = device_property(dtype="str")
 
     # device attributes
     hw_limit_minus = attribute(
@@ -179,7 +171,7 @@ class PhytronMCC2Axis(Device):
 10 = 1/10 step
 16 = 1/16 step
 128 = 1/128 step
-256 = 1/256 step"""
+256 = 1/256 step""",
     )
 
     backlash_compensation = attribute(
@@ -202,7 +194,7 @@ Rotating table, 1 limit switch for mechanical zero
 for XY tables or other linear systems,
 2 limit switches:
 Mechanical zero and limit direction -
-Limit direction +"""
+Limit direction +""",
     )
 
     movement_unit = attribute(
@@ -210,14 +202,14 @@ Limit direction +"""
         label="unit",
         access=AttrWriteType.READ_WRITE,
         display_level=DispLevel.EXPERT,
-        doc="Allowed unit values are step, mm, inch, degree"
+        doc="Allowed unit values are step, mm, inch, degree",
     )
 
     # private class properties
-    __NACK = chr(0x15)     # command failed
+    __NACK = chr(0x15)  # command failed
     __LIM_PLUS = 2
     __LIM_MINUS = 1
-    __Axis_Name = ''
+    __Axis_Name = ""
     __HW_Limit_Minus = False
     __HW_Limit_Plus = False
     __Inverted = False
@@ -251,11 +243,13 @@ Limit direction +"""
         else:
             self.info_stream("controller was already open")
 
-        if ("MCC" in self.read_firmware_version()):
+        if "MCC" in self.read_firmware_version():
             # read memorized attributes from Database
             self.db = Database()
             try:
-                attr = self.db.get_device_attribute_property(self.get_name(), ["inverted"])
+                attr = self.db.get_device_attribute_property(
+                    self.get_name(), ["inverted"]
+                )
                 if attr["inverted"]["__value"][0] == "true":
                     self.__Inverted = True
                 else:
@@ -274,14 +268,14 @@ Limit direction +"""
 
     def always_executed_hook(self):
         answer = self._send_cmd("SE")
-        if (self.Axis == 0):
+        if self.Axis == 0:
             if self.__Inverted:
                 self.__HW_Limit_Minus = bool(int(answer[2]) & self.__LIM_PLUS)
                 self.__HW_Limit_Plus = bool(int(answer[2]) & self.__LIM_MINUS)
             else:
                 self.__HW_Limit_Minus = bool(int(answer[2]) & self.__LIM_MINUS)
                 self.__HW_Limit_Plus = bool(int(answer[2]) & self.__LIM_PLUS)
-            moving = not(bool(int(answer[1]) & 1))
+            moving = not (bool(int(answer[1]) & 1))
         else:
             if self.__Inverted:
                 self.__HW_Limit_Minus = bool(int(answer[6]) & self.__LIM_PLUS)
@@ -289,7 +283,7 @@ Limit direction +"""
             else:
                 self.__HW_Limit_Minus = bool(int(answer[6]) & self.__LIM_MINUS)
                 self.__HW_Limit_Plus = bool(int(answer[6]) & self.__LIM_PLUS)
-            moving = not(bool(int(answer[5]) & 1))
+            moving = not (bool(int(answer[5]) & 1))
         self.debug_stream("HW limit-: {0}".format(self.__HW_Limit_Minus))
         self.debug_stream("HW limit+: {0}".format(self.__HW_Limit_Plus))
         if moving is False:
@@ -311,37 +305,37 @@ Limit direction +"""
     def read_sw_limit_minus(self):
         ret = float(self.send_cmd("P24R"))
         if self.__Inverted:
-            return -1*ret
+            return -1 * ret
         else:
             return ret
 
     def write_sw_limit_minus(self, value):
         if self.__Inverted:
-            value = -1*value
+            value = -1 * value
         self.send_cmd("P24S{:f}".format(value))
 
     def read_sw_limit_plus(self):
         ret = float(self.send_cmd("P23R"))
         if self.__Inverted:
-            return -1*ret
+            return -1 * ret
         else:
             return ret
 
     def write_sw_limit_plus(self, value):
         if self.__Inverted:
-            value = -1*value
+            value = -1 * value
         self.send_cmd("P23S{:f}".format(value))
 
     def read_position(self):
         ret = float(self.send_cmd("P20R"))
         if self.__Inverted:
-            return -1*ret
+            return -1 * ret
         else:
             return ret
 
     def write_position(self, value):
         if self.__Inverted:
-            value = -1*value
+            value = -1 * value
         answer = self.send_cmd("A{:.10f}".format(value))
         if answer != self.__NACK:
             self.set_state(DevState.MOVING)
@@ -374,37 +368,39 @@ Limit direction +"""
         self.send_cmd("P08S{:d}".format(value))
 
     def read_run_current(self):
-        return float(self.send_cmd("P41R"))/10
+        return float(self.send_cmd("P41R")) / 10
 
     def write_run_current(self, value):
-        value = int(value*10)
+        value = int(value * 10)
         if value not in range(0, 26):
             return "input not in range 0..25"
         self.send_cmd("P41S{:d}".format(value))
 
     def read_hold_current(self):
-        return float(self.send_cmd("P40R"))/10
+        return float(self.send_cmd("P40R")) / 10
 
     def write_hold_current(self, value):
-        value = int(value*10)
+        value = int(value * 10)
         if value not in range(0, 26):
             return "input not in range 0..25"
         self.send_cmd("P40S{:d}".format(value))
 
     def read_initiator_type(self):
-        return InitiatorType.NOC if bool(int(self.send_cmd("P27R"))) else InitiatorType.NCC
+        return (
+            InitiatorType.NOC if bool(int(self.send_cmd("P27R"))) else InitiatorType.NCC
+        )
 
     def write_initiator_type(self, value):
         self.send_cmd("P27S{:d}".format(int(value)))
 
     def read_steps_per_unit(self):
         # inverse of spindle pitch (see manual page 50)
-        self.__Steps_Per_Unit = 1/float(self.send_cmd("P03R"))
+        self.__Steps_Per_Unit = 1 / float(self.send_cmd("P03R"))
         return self.__Steps_Per_Unit
 
     def write_steps_per_unit(self, value):
         # inverse of spindle pitch (see manual page 50)
-        self.send_cmd("P03S{:10.8f}".format(1/value))
+        self.send_cmd("P03S{:10.8f}".format(1 / value))
         # update display unit
         self.set_display_unit()
 
@@ -419,17 +415,21 @@ Limit direction +"""
     def read_backlash_compensation(self):
         ret = int(self.send_cmd("P25R"))
         if self.__Inverted:
-            return -1*ret
+            return -1 * ret
         else:
             return ret
 
     def write_backlash_compensation(self, value):
         if self.__Inverted:
-            value = -1*value
+            value = -1 * value
         self.send_cmd("P25S{:d}".format(int(value)))
 
     def read_type_of_movement(self):
-        return MovementType.linear if bool(int(self.send_cmd("P01R"))) else MovementType.rotational
+        return (
+            MovementType.linear
+            if bool(int(self.send_cmd("P01R")))
+            else MovementType.rotational
+        )
 
     def write_type_of_movement(self, value):
         self.send_cmd("P01S{:d}".format(int(value)))
@@ -447,7 +447,7 @@ Limit direction +"""
         return self.__Unit
 
     def write_movement_unit(self, value):
-        self.send_cmd("P02S{:d}".format(int(value+1)))
+        self.send_cmd("P02S{:d}".format(int(value + 1)))
         self.read_movement_unit()
         self.set_display_unit()
 
@@ -457,7 +457,7 @@ Limit direction +"""
         for attr in attributes:
             ac3 = self.get_attribute_config_3(attr)
             ac3[0].unit = self.__Unit.name.encode("utf-8")
-            if (1/self.__Steps_Per_Unit % 1) == 0.0:
+            if (1 / self.__Steps_Per_Unit % 1) == 0.0:
                 ac3[0].format = b"%8d"
             else:
                 ac3[0].format = b"%8.3f"
@@ -469,13 +469,16 @@ Limit direction +"""
         res = self.ctrl.write_read(cmd)
         if res == self.__NACK:
             self.set_state(DevState.FAULT)
-            self.warn_stream("command not acknowledged from controller "
-                             "-> Fault State")
+            self.warn_stream(
+                "command not acknowledged from controller " "-> Fault State"
+            )
             return ""
         return res
 
     # commands
-    @command(dtype_in=str, dtype_out=str, doc_in="enter a command", doc_out="the response")
+    @command(
+        dtype_in=str, dtype_out=str, doc_in="enter a command", doc_out="the response"
+    )
     def send_cmd(self, cmd):
         # add axis name (X, Y) to beginning of command
         return self._send_cmd(str(self.__Axis_Name) + cmd)
@@ -488,7 +491,7 @@ Limit direction +"""
     @command(dtype_in=float, doc_in="position")
     def set_position(self, value):
         if self.__Inverted:
-            value = -1*value
+            value = -1 * value
         self.send_cmd("P20S{:.4f}".format(value))
 
     @command

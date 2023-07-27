@@ -36,17 +36,19 @@ class PhytronMCC2Ctrl(Device):
     )
 
     # connection settings
-    PARITY = serial.PARITY_NONE  # serial.PARITY_NONE, serial.PARITY_ODD, serial.PARITY_EVEN
+    PARITY = (
+        serial.PARITY_NONE
+    )  # serial.PARITY_NONE, serial.PARITY_ODD, serial.PARITY_EVEN
     FLOWCONTROL = "none"  # "none", "software", "hardware", "sw/hw"
     TIMEOUT = 0
     BYTESIZE = 8
     STOPBITS = 1
 
     # definition some constants
-    __STX = chr(2)         # Start of text
-    __ACK = chr(6)         # Command ok
-    __NACK = chr(0x15)     # command failed
-    __ETX = chr(3)         # end of text
+    __STX = chr(2)  # Start of text
+    __ACK = chr(6)  # Command ok
+    __NACK = chr(0x15)  # command failed
+    __ETX = chr(3)  # end of text
 
     def init_device(self):
         self.info_stream("init_device()")

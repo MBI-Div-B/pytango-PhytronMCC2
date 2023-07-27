@@ -8,8 +8,8 @@ import re
 
 NAME = "sxr/MCC2/Ctrl"
 
-ctrl, addr, axis = '', '', ''
-device_name = ''
+ctrl, addr, axis = "", "", ""
+device_name = ""
 
 
 def usage():
@@ -28,45 +28,45 @@ def create_device(ctrl, addr, axis):
     new_device_info_mcc._class = "PhytronMcc2"
     new_device_info_mcc.server = "PhytronMcc2/raspi14"
 
-    new_device = NAME + ctrl + '_' + addr + '_' + axis
+    new_device = NAME + ctrl + "_" + addr + "_" + axis
 
     print("Creating device: %s" % new_device)
     new_device_info_mcc.name = new_device
     db.add_device(new_device_info_mcc)
-    return (new_device)
+    return new_device
 
 
 def create_properties(device_name, addr, axis):
     CTRL_DEVICE = "sxr/SerialDS/1"
     MOTOR_NAME = "mcc_"
-    property_names = ['Address', 'Motor', 'CtrlDevice']
+    property_names = ["Address", "Motor", "CtrlDevice"]
 
     mcc = DeviceProxy(device_name)
 
     prop_dict = mcc.get_property(property_names)
     prop_dict["CtrlDevice"] = CTRL_DEVICE
-    prop_dict['Motor'] = int(axis)
-    prop_dict['Address'] = int(addr)
-    prop_dict['Alias'] = MOTOR_NAME + (addr) + "_" + axis
+    prop_dict["Motor"] = int(axis)
+    prop_dict["Address"] = int(addr)
+    prop_dict["Alias"] = MOTOR_NAME + (addr) + "_" + axis
 
     mcc.put_property(prop_dict)
 
 
 def check_input():
-    if not(NAME in sys.argv[1]):
+    if not (NAME in sys.argv[1]):
         usage()
-    tmp = re.split('[.l_]', sys.argv[1])
+    tmp = re.split("[.l_]", sys.argv[1])
     axis = tmp[-1]
     if not axis.isdigit():
-        print ("\naxis not an integer!")
+        print("\naxis not an integer!")
         usage()
     addr = tmp[-2]
     if not addr.isdigit():
-        print ("\naddr not an integer!")
+        print("\naddr not an integer!")
         usage()
     ctrl = tmp[-3]
     if not ctrl.isdigit():
-        print ("\nctrl not an integer!")
+        print("\nctrl not an integer!")
         usage()
     return (ctrl, addr, axis)
 
