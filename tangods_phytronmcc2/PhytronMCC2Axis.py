@@ -31,10 +31,6 @@ class PhytronMCC2Axis(Device):
 
     Axis = device_property(dtype="int16")
 
-    Address = device_property(dtype="int16")
-
-    Alias = device_property(dtype="str")
-
     # device attributes
     hw_limit_minus = attribute(
         dtype="bool",
@@ -74,13 +70,6 @@ class PhytronMCC2Axis(Device):
         label="position",
         unit="steps",
         access=AttrWriteType.READ_WRITE,
-        display_level=DispLevel.OPERATOR,
-    )
-
-    alias = attribute(
-        dtype="string",
-        label="alias",
-        access=AttrWriteType.READ,
         display_level=DispLevel.OPERATOR,
     )
 
@@ -209,7 +198,6 @@ Limit direction +""",
     __NACK = chr(0x15)  # command failed
     __LIM_PLUS = 2
     __LIM_MINUS = 1
-    __Axis_Name = ""
     __HW_Limit_Minus = False
     __HW_Limit_Plus = False
     __Inverted = False
@@ -220,14 +208,7 @@ Limit direction +""",
         super().init_device()
         self.info_stream("init_device()")
 
-        if self.Axis == 0:
-            self.__Axis_Name = "X"
-        else:
-            self.__Axis_Name = "Y"
-
-        self.info_stream("module address: {:d}".format(self.Address))
         self.info_stream("module axis: {:d}".format(self.Axis))
-        self.info_stream("alias: {:s}".format(self.Alias))
 
         try:
             self.ctrl = DeviceProxy(self.CtrlDevice)
@@ -236,29 +217,19 @@ Limit direction +""",
             self.error_stream("failed to create proxy to {:s}".format(df))
             sys.exit(255)
 
-        # check if the CrlDevice ON, if not open the serial port
-        if str(self.ctrl.state()) == "OFF":
-            self.ctrl.open()
-            self.info_stream("controller sucessfully opened")
-        else:
-            self.info_stream("controller was already open")
-
-        if "MCC" in self.read_firmware_version():
-            # read memorized attributes from Database
-            self.db = Database()
-            try:
-                attr = self.db.get_device_attribute_property(
-                    self.get_name(), ["inverted"]
-                )
-                if attr["inverted"]["__value"][0] == "true":
-                    self.__Inverted = True
-                else:
-                    self.__Inverted = False
-            except Exception:
+        # read memorized attributes from Database
+        self.db = Database()
+        try:
+            attr = self.db.get_device_attribute_property(
+                self.get_name(), ["inverted"]
+            )
+            if attr["inverted"]["__value"][0] == "true":
+                self.__Inverted = True
+            else:
                 self.__Inverted = False
-            self.set_state(DevState.ON)
-        else:
-            self.set_state(DevState.OFF)
+        except Exception:
+            self.__Inverted = False
+        self.set_state(DevState.ON)
 
         self.info_stream("HW limit-: {0}".format(self.__HW_Limit_Minus))
         self.info_stream("HW limit+: {0}".format(self.__HW_Limit_Plus))
@@ -267,33 +238,49 @@ Limit direction +""",
         self.set_state(DevState.OFF)
 
     def always_executed_hook(self):
-        answer = self._send_cmd("SE")
-        if self.Axis == 0:
-            if self.__Inverted:
-                self.__HW_Limit_Minus = bool(int(answer[2]) & self.__LIM_PLUS)
-                self.__HW_Limit_Plus = bool(int(answer[2]) & self.__LIM_MINUS)
-            else:
-                self.__HW_Limit_Minus = bool(int(answer[2]) & self.__LIM_MINUS)
-                self.__HW_Limit_Plus = bool(int(answer[2]) & self.__LIM_PLUS)
-            moving = not (bool(int(answer[1]) & 1))
-        else:
-            if self.__Inverted:
-                self.__HW_Limit_Minus = bool(int(answer[6]) & self.__LIM_PLUS)
-                self.__HW_Limit_Plus = bool(int(answer[6]) & self.__LIM_MINUS)
-            else:
-                self.__HW_Limit_Minus = bool(int(answer[6]) & self.__LIM_MINUS)
-                self.__HW_Limit_Plus = bool(int(answer[6]) & self.__LIM_PLUS)
-            moving = not (bool(int(answer[5]) & 1))
-        self.debug_stream("HW limit-: {0}".format(self.__HW_Limit_Minus))
-        self.debug_stream("HW limit+: {0}".format(self.__HW_Limit_Plus))
-        if moving is False:
-            self.set_status("Device in ON")
-            self.set_state(DevState.ON)
-            self.debug_stream("device is: ON")
-        else:
-            self.set_status("Device is MOVING")
-            self.set_state(DevState.MOVING)
-            self.debug_stream("device is: MOVING")
+        answer = self._send_cmd("ST")
+        self.debug_stream(hex(int(answer)))
+        """see https://www.phytron.de/fileadmin/user_upload/produkte/endstufen_controller/pdf/phylogic-de.pdf
+        page 44
+        
+        Leonid says - but must be done in hex instead of dec# 1 -> 1e7
+        status_codes = [2**i*10**x for i in range(0, 4) for x in range(0, 6)] + [10**7]
+        status_array = [False] * len(status_codes)
+        input = 100270
+
+        for index, code in enumerate(reversed(status_codes)):
+            if input >= code:
+                input -= code
+                status_array[index] = True
+
+        print(status_array)
+        """
+        # if self.Axis == 0:
+        #     if self.__Inverted:
+        #         self.__HW_Limit_Minus = bool(int(answer[2]) & self.__LIM_PLUS)
+        #         self.__HW_Limit_Plus = bool(int(answer[2]) & self.__LIM_MINUS)
+        #     else:
+        #         self.__HW_Limit_Minus = bool(int(answer[2]) & self.__LIM_MINUS)
+        #         self.__HW_Limit_Plus = bool(int(answer[2]) & self.__LIM_PLUS)
+        #     moving = not (bool(int(answer[1]) & 1))
+        # else:
+        #     if self.__Inverted:
+        #         self.__HW_Limit_Minus = bool(int(answer[6]) & self.__LIM_PLUS)
+        #         self.__HW_Limit_Plus = bool(int(answer[6]) & self.__LIM_MINUS)
+        #     else:
+        #         self.__HW_Limit_Minus = bool(int(answer[6]) & self.__LIM_MINUS)
+        #         self.__HW_Limit_Plus = bool(int(answer[6]) & self.__LIM_PLUS)
+        #     moving = not (bool(int(answer[5]) & 1))
+        # self.debug_stream("HW limit-: {0}".format(self.__HW_Limit_Minus))
+        # self.debug_stream("HW limit+: {0}".format(self.__HW_Limit_Plus))
+        # if moving is False:
+        #     self.set_status("Device in ON")
+        #     self.set_state(DevState.ON)
+        #     self.debug_stream("device is: ON")
+        # else:
+        #     self.set_status("Device is MOVING")
+        #     self.set_state(DevState.MOVING)
+        #     self.debug_stream("device is: MOVING")
 
     # attribute read/write methods
     def read_hw_limit_minus(self):
@@ -465,7 +452,7 @@ Limit direction +""",
 
     def _send_cmd(self, cmd):
         # add module address to beginning of command
-        cmd = str(self.Address) + cmd
+        cmd = '0{:d}.1{:s}'.format(self.Axis, cmd)
         res = self.ctrl.write_read(cmd)
         if res == self.__NACK:
             self.set_state(DevState.FAULT)
@@ -481,12 +468,7 @@ Limit direction +""",
     )
     def send_cmd(self, cmd):
         # add axis name (X, Y) to beginning of command
-        return self._send_cmd(str(self.__Axis_Name) + cmd)
-
-    @command(dtype_out=str, doc_out="the firmware version")
-    def read_firmware_version(self):
-        version = self._send_cmd("IVR")
-        return version
+        return self._send_cmd(cmd)
 
     @command(dtype_in=float, doc_in="position")
     def set_position(self, value):
@@ -535,11 +517,6 @@ Limit direction +""",
     def abort(self):
         self.send_cmd("SN")
         self.set_state(DevState.ON)
-
-    @command(dtype_in=str)
-    def set_alias(self, name):
-        self.Alias = name
-        self.db.put_device_property(self.get_name(), {"Alias": name})
 
     @command(dtype_out=str)
     def write_to_eeprom(self):
