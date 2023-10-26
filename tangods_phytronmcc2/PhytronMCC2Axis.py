@@ -6,6 +6,7 @@ from tango.server import device_property
 from tango.server import Device, attribute, command
 import sys
 from enum import IntEnum
+import time
 
 
 class MovementType(IntEnum):
@@ -30,10 +31,10 @@ _PHY_AXIS_STATUS_CODES = [
     "Axis waits for synchronisation",  # 2
     "Axis initialised",  # 3
     "Axis limit switch +",  # 4
-    "Axis limit switch –",  # 5
+    "Axis limit switch -",  # 5
     "Axis limit switch center",  # 6
     "Axis limit switch software +",  # 7
-    "Axis limit switch software –",  # 8
+    "Axis limit switch software -",  # 8
     "Axis power stage is busy",  # 9
     "Axis is in the ramp",  # 10
     "Axis internal error",  # 11
@@ -288,7 +289,7 @@ Limit direction +""",
         statusbits = []
         for digit in hexstring[::-1]:
             digit_num = int(digit, base=16)
-            statusbits += [(digit_num >> i) & 1 for i in range(4)][::-1]
+            statusbits += [(digit_num >> i) & 1 for i in range(4)]
         return statusbits
 
     def always_executed_hook(self):
@@ -296,8 +297,8 @@ Limit direction +""",
         # -> limit max. query rate to 5 Hz
         now = time.time()
         if now - self._last_status_query > 0.2:
-            answer = self._send_cmd("SE{self.Axis}.1")
-            self.debug_stream(hex(int(answer)))
+            answer = self.ctrl.write_read(f"SE{self.Axis}.1")
+            self.debug_stream(f"status: {answer}")
             self._last_status_query = now
             self._statusbits = self._decode_status(int(answer), 7)
 
@@ -509,7 +510,7 @@ Limit direction +""",
 
     def _send_cmd(self, cmd):
         # add module address to beginning of command
-        cmd = '0{:d}.1{:s}'.format(self.Axis, cmd)
+        cmd = '{:d}.1{:s}'.format(self.Axis, cmd)
         res = self.ctrl.write_read(cmd)
         if res == self.__NACK:
             self.set_state(DevState.FAULT)
