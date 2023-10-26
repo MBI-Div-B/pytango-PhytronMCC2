@@ -280,7 +280,7 @@ Limit direction +""",
         where each hex digit represents 4 status bits.
         To get the correct bit status length, leading zeros are required.
         Hence the maximum number of digits must be provided as a parameter.
-        
+
         Documentation:
         https://www.phytron.de/fileadmin/user_upload/produkte/endstufen_controller/pdf/phylogic-de.pdf
         page 44
@@ -315,32 +315,6 @@ Limit direction +""",
             if any([self._statusbits[n] for n in [1, 11, 12, 13, 14, 15]]):
                 self.set_state(DevState.FAULT)
 
-        # if self.Axis == 0:
-        #     if self.__Inverted:
-        #         self.__HW_Limit_Minus = bool(int(answer[2]) & self.__LIM_PLUS)
-        #         self.__HW_Limit_Plus = bool(int(answer[2]) & self.__LIM_MINUS)
-        #     else:
-        #         self.__HW_Limit_Minus = bool(int(answer[2]) & self.__LIM_MINUS)
-        #         self.__HW_Limit_Plus = bool(int(answer[2]) & self.__LIM_PLUS)
-        #     moving = not (bool(int(answer[1]) & 1))
-        # else:
-        #     if self.__Inverted:
-        #         self.__HW_Limit_Minus = bool(int(answer[6]) & self.__LIM_PLUS)
-        #         self.__HW_Limit_Plus = bool(int(answer[6]) & self.__LIM_MINUS)
-        #     else:
-        #         self.__HW_Limit_Minus = bool(int(answer[6]) & self.__LIM_MINUS)
-        #         self.__HW_Limit_Plus = bool(int(answer[6]) & self.__LIM_PLUS)
-        #     moving = not (bool(int(answer[5]) & 1))
-        # self.debug_stream("HW limit-: {0}".format(self.__HW_Limit_Minus))
-        # self.debug_stream("HW limit+: {0}".format(self.__HW_Limit_Plus))
-        # if moving is False:
-        #     self.set_status("Device in ON")
-        #     self.set_state(DevState.ON)
-        #     self.debug_stream("device is: ON")
-        # else:
-        #     self.set_status("Device is MOVING")
-        #     self.set_state(DevState.MOVING)
-        #     self.debug_stream("device is: MOVING")
 
     # attribute read/write methods
     def read_hw_limit_minus(self):
@@ -553,17 +527,17 @@ Limit direction +""",
     @command
     def homing_plus(self):
         if self.__Inverted:
-            self.send_cmd("0-")
+            self.send_cmd("R-")
         else:
-            self.send_cmd("0+")
+            self.send_cmd("R+")
         self.set_state(DevState.MOVING)
 
     @command
     def homing_minus(self):
         if self.__Inverted:
-            self.send_cmd("0+")
+            self.send_cmd("R+")
         else:
-            self.send_cmd("0-")
+            self.send_cmd("R-")
         self.set_state(DevState.MOVING)
 
     @command
