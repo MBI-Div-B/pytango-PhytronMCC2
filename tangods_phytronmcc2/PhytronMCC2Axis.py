@@ -401,9 +401,8 @@ Limit direction +""",
         self.send_cmd("P40S{:d}".format(value))
 
     def read_initiator_type(self):
-        return (
-            InitiatorType.NOC if bool(int(self.send_cmd("P27R"))) else InitiatorType.NCC
-        )
+        value = self.send_cmd("P27R")
+        return InitiatorType(int(value))
 
     def write_initiator_type(self, value):
         self.send_cmd("P27S{:d}".format(int(value)))
