@@ -184,15 +184,11 @@ class PhytronMCC2Axis(Device):
         label="step resolution",
         access=AttrWriteType.READ_WRITE,
         display_level=DispLevel.EXPERT,
-        doc="""Step resolution 1 to 256
-1 = Full step
-2 = Half step
-4 = 1/4 step
-8 = 1/8 step
-10 = 1/10 step
-16 = 1/16 step
-128 = 1/128 step
-256 = 1/256 step""",
+        doc=(
+            "Step resolution index.\n0 = Full step\n1 = Half step\n2 = 1/2.5 step\n"
+            "3 = 1/4 step\n4 = 1/5 step\n5 = 1/8 step\n6 = 1/10 step\n7 = 1/16 step\n"
+            "8 = 1/20 step\n9 = 1/32 step\n10 = 1/64 step\n11 = 1/128 step"
+        ),
     )
 
     backlash_compensation = attribute(
@@ -427,8 +423,8 @@ Limit direction +""",
         return int(self.send_cmd("P45R"))
 
     def write_step_resolution(self, value):
-        if value not in [1, 2, 4, 8, 10, 16, 128, 256]:
-            return "input not in [1, 2, 4, 8, 10, 16, 128, 256]"
+        if value not in range(14):
+            raise ValueError(f"Invalid step resolution index: {value} not in (0-13)")
         self.send_cmd("P45S{:d}".format(value))
 
     def read_backlash_compensation(self):
