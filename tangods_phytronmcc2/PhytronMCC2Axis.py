@@ -24,12 +24,43 @@ class InitiatorType(IntEnum):
     NCC = 0
     NOC = 1
 
+_PHY_AXIS_STATUS_CODES = [
+    "Axis busy",  # 0
+    "Command invalid",  # 1
+    "Axis waits for synchronisation",  # 2
+    "Axis initialised",  # 3
+    "Axis limit switch +",  # 4
+    "Axis limit switch –",  # 5
+    "Axis limit switch center",  # 6
+    "Axis limit switch software +",  # 7
+    "Axis limit switch software –",  # 8
+    "Axis power stage is busy",  # 9
+    "Axis is in the ramp",  # 10
+    "Axis internal error",  # 11
+    "Axis limit switch error",  # 12
+    "Axis power stage error",  # 13
+    "Axis SFI error",  # 14
+    "Axis ENDAT error",  # 15
+    "Axis is running",  # 16
+    "Axis is in recovery time (s. parameter P13 or P16)",  # 17
+    "Axis is in stop current delay time (parameter P43)",  # 18
+    "Axis is in position",  # 19
+    "Axis APS is ready",  # 20
+    "Axis is positioning mode",  # 21
+    "Axis is in free running mode",  # 22
+    "Axis multi F run",  # 23
+    "Axis SYNC allowed",  # 24
+]
 
 class PhytronMCC2Axis(Device):
     # device properties
     CtrlDevice = device_property(dtype="str", default_value="domain/family/member")
 
-    Axis = device_property(dtype="int16")
+    Axis = device_property(
+        dtype="int16",
+        default_value=1,
+        doc="Module number in controller (starts at 1)."
+    )
 
     # device attributes
     hw_limit_minus = attribute(
@@ -203,6 +234,8 @@ Limit direction +""",
     __Inverted = False
     __Unit = MovementUnit.step
     __Steps_Per_Unit = 1.0
+    _last_status_query = 0
+    _statusbits = 25 * [0]
 
     def init_device(self):
         super().init_device()
@@ -231,30 +264,56 @@ Limit direction +""",
             self.__Inverted = False
         self.set_state(DevState.ON)
 
-        self.info_stream("HW limit-: {0}".format(self.__HW_Limit_Minus))
-        self.info_stream("HW limit+: {0}".format(self.__HW_Limit_Plus))
+        # self.info_stream("HW limit-: {0}".format(self.__HW_Limit_Minus))
+        # self.info_stream("HW limit+: {0}".format(self.__HW_Limit_Plus))
 
     def delete_device(self):
         self.set_state(DevState.OFF)
 
-    def always_executed_hook(self):
-        answer = self._send_cmd("ST")
-        self.debug_stream(hex(int(answer)))
-        """see https://www.phytron.de/fileadmin/user_upload/produkte/endstufen_controller/pdf/phylogic-de.pdf
-        page 44
+    def _decode_status(self, status, ndigits):
+        """Decode status number to bit list.
+
+        Status codes are returned as decimal, but should be interpreted
+        as hex representation of packed 4-bit nibbles. In other words, the
+        decimal status code needs to be formatted as a hexadecimal number,
+        where each hex digit represents 4 status bits.
+        To get the correct bit status length, leading zeros are required.
+        Hence the maximum number of digits must be provided as a parameter.
         
-        Leonid says - but must be done in hex instead of dec# 1 -> 1e7
-        status_codes = [2**i*10**x for i in range(0, 4) for x in range(0, 6)] + [10**7]
-        status_array = [False] * len(status_codes)
-        input = 100270
-
-        for index, code in enumerate(reversed(status_codes)):
-            if input >= code:
-                input -= code
-                status_array[index] = True
-
-        print(status_array)
+        Documentation:
+        https://www.phytron.de/fileadmin/user_upload/produkte/endstufen_controller/pdf/phylogic-de.pdf
+        page 44
         """
+        hexstring = f"{int(status):0{ndigits}X}"
+        statusbits = []
+        for digit in hexstring[::-1]:
+            digit_num = int(digit, base=16)
+            statusbits += [(digit_num >> i) & 1 for i in range(4)][::-1]
+        return statusbits
+
+    def always_executed_hook(self):
+        # axis state query takes 10 ms (per axis!) on phymotion over TCP
+        # -> limit max. query rate to 5 Hz
+        now = time.time()
+        if now - self._last_status_query > 0.2:
+            answer = self._send_cmd("SE{self.Axis}.1")
+            self.debug_stream(hex(int(answer)))
+            self._last_status_query = now
+            self._statusbits = self._decode_status(int(answer), 7)
+
+            status_list = []
+            for n, bit_value in enumerate(self._statusbits):
+                if bit_value:
+                    status_list.append(_PHY_AXIS_STATUS_CODES[n])
+            self.set_status("\n".join(status_list))
+
+            if any([self._statusbits[n] for n in [3, 4, 5, 6, 7, 8, 19]]):
+                self.set_state(DevState.ON)
+            if any([self._statusbits[n] for n in [0, 16, 21, 22, 23]]):
+                self.set_state(DevState.MOVING)
+            if any([self._statusbits[n] for n in [1, 11, 12, 13, 14, 15]]):
+                self.set_state(DevState.FAULT)
+
         # if self.Axis == 0:
         #     if self.__Inverted:
         #         self.__HW_Limit_Minus = bool(int(answer[2]) & self.__LIM_PLUS)
@@ -284,17 +343,16 @@ Limit direction +""",
 
     # attribute read/write methods
     def read_hw_limit_minus(self):
-        return self.__HW_Limit_Minus
+        return bool(self._statusbits[5])
 
     def read_hw_limit_plus(self):
-        return self.__HW_Limit_Plus
+        return bool(self._statusbits[4])
 
     def read_sw_limit_minus(self):
-        ret = float(self.send_cmd("P24R"))
         if self.__Inverted:
-            return -1 * ret
+            return bool(self._statusbits[7])
         else:
-            return ret
+            return bool(self._statusbits[8])
 
     def write_sw_limit_minus(self, value):
         if self.__Inverted:
@@ -302,11 +360,10 @@ Limit direction +""",
         self.send_cmd("P24S{:f}".format(value))
 
     def read_sw_limit_plus(self):
-        ret = float(self.send_cmd("P23R"))
         if self.__Inverted:
-            return -1 * ret
+            return bool(self._statusbits[8])
         else:
-            return ret
+            return bool(self._statusbits[7])
 
     def write_sw_limit_plus(self, value):
         if self.__Inverted:
