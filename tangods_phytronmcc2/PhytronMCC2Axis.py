@@ -279,7 +279,7 @@ Limit direction +""",
 
         Documentation:
         https://www.phytron.de/fileadmin/user_upload/produkte/endstufen_controller/pdf/phylogic-de.pdf
-        page 44
+        page 41
         """
         hexstring = f"{int(status):0{ndigits}X}"
         statusbits = []
