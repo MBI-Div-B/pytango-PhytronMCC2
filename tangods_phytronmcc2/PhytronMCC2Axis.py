@@ -35,7 +35,7 @@ _PHY_AXIS_STATUS_CODES = [
     "Axis limit switch center",  # 6
     "Axis limit switch software +",  # 7
     "Axis limit switch software -",  # 8
-    "Axis power stage is busy",  # 9
+    "Axis power stage is ready",  # 9
     "Axis is in the ramp",  # 10
     "Axis internal error",  # 11
     "Axis limit switch error",  # 12
