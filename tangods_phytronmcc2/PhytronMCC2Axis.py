@@ -204,14 +204,12 @@ class PhytronMCC2Axis(Device):
         label="type of movement",
         access=AttrWriteType.READ_WRITE,
         display_level=DispLevel.EXPERT,
-        doc="""0 = rotational
-Rotating table, 1 limit switch for mechanical zero
-(referencing)
-1 = linear
-for XY tables or other linear systems,
-2 limit switches:
-Mechanical zero and limit direction -
-Limit direction +""",
+        doc=(
+            "0 = rotation; limit switched are ignored.\n"
+            "1 = linear; only hardware limit switches active.\n"
+            "2 = linear; only software limit switches active.\n"
+            "3 = linear; hardware and software limit switches active."
+        ),
     )
 
     movement_unit = attribute(
