@@ -439,11 +439,8 @@ class PhytronMCC2Axis(Device):
         self.send_cmd("P25S{:d}".format(int(value)))
 
     def read_type_of_movement(self):
-        return (
-            MovementType.linear
-            if bool(int(self.send_cmd("P01R")))
-            else MovementType.rotational
-        )
+        value = int(self.send_cmd("P01R"))
+        return MovementType(value)
 
     def write_type_of_movement(self, value):
         self.send_cmd("P01S{:d}".format(int(value)))
