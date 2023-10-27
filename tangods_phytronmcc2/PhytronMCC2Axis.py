@@ -11,7 +11,9 @@ import time
 
 class MovementType(IntEnum):
     rotational = 0
-    linear = 1
+    linear_hwlimit = 1
+    linear_swlimit = 2
+    linear_hwswlimit = 3
 
 
 class MovementUnit(IntEnum):
