@@ -17,7 +17,7 @@ class PhytronMCC2Ctrl(Device):
 
     Baudrate = device_property(
         dtype="int",
-        default_value=115200,
+        default_value=57600,
     )
 
     # definition some constants
@@ -35,12 +35,7 @@ class PhytronMCC2Ctrl(Device):
         self.serial = serial.Serial()
         self.serial.baudrate = self.Baudrate
         self.serial.port = self.Port
-        self.serial.parity = serial.PARITY_NONE
-        self.serial.bytesize = 8
-        self.serial.stopbits = 1
-        self.serial.timeout = 1
-        self.serial.xonxoff = 0
-        self.serial.rtscts = 0
+        self.serial.timeout = 0
 
         # open serial connection
         try:
@@ -60,15 +55,21 @@ class PhytronMCC2Ctrl(Device):
     def write_read(self, cmd):
         cmd = self.__STX + cmd + self.__ETX
         self.debug_stream("write command: {:s}".format(cmd))
+        
         self.serial.write(cmd.encode("utf-8"))
         self.serial.flush()
-        # time.sleep(0.02)  # 20ms wait time
-        res = self.serial.readline().decode("utf-8")
+        res = ""
+        while not self.__ETX in res:
+            line = self.serial.readline().decode("utf-8")
+            res += line
+            self.serial.flush()
+
         self.debug_stream("read response: {:s}".format(res))
         if self.__ACK in res:
             return res.lstrip(self.__STX).lstrip(self.__ACK).rstrip(self.__ETX)
         else:
             # no acknowledgment in response
+            self.debug_stream("read response: NACK")
             return self.__NACK
 
     def is_write_allowed(self):
