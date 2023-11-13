@@ -5,8 +5,8 @@
 from tango import Database, DevFailed, AttrWriteType, DevState, DeviceProxy, DispLevel
 from tango.server import device_property
 from tango.server import Device, attribute, command
-import sys
 from enum import IntEnum
+import time
 
 
 class MovementType(IntEnum):
