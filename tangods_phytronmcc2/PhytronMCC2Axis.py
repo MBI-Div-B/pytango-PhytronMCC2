@@ -215,11 +215,6 @@ class PhytronMCC2Axis(Device):
 
     # private class properties
     __NACK = chr(0x15)  # command failed
-    _inverted = False
-    _unit = MovementUnit.steps
-    _steps_per_unit = 1.0
-    _last_status_query = 0
-    _all_parameters = {}
 
     # decorators
     def update_parameters(parameter=-1):
@@ -231,7 +226,7 @@ class PhytronMCC2Axis(Device):
         def wrap(func):
             def inner(self, value):
                 func(self, value)
-                self.read_all_parameters(parameter)               
+                self.read_all_parameters(parameter)
             return inner
         return wrap
 
@@ -254,6 +249,12 @@ class PhytronMCC2Axis(Device):
             self.error_stream("failed to create proxy to {:s}".format(df))
             self.set_state(DevState.FAULT)
             return
+
+        self._inverted = False
+        self._unit = MovementUnit.steps
+        self._steps_per_unit = 1.0
+        self._last_status_query = 0
+        self._all_parameters = {}
 
         # read all parameters
         self.read_all_parameters()
