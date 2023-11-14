@@ -76,7 +76,7 @@ class PhytronMCC2Axis(Device):
 
     TimeOut = device_property(
         dtype="float",
-        default_value=0.2,
+        default_value=0.5,
         doc=(
             "Timeout in seconds between status requests\n"
             "to reduce communication traffic."
