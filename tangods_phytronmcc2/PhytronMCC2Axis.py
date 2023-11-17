@@ -530,6 +530,10 @@ class PhytronMCC2Axis(Device):
             value = -1 * value
         self.send_cmd("P20S{:.4f}".format(value))
 
+    @command()
+    def restore_position(self):
+        self.set_position(self._last_position)
+
     @command
     def jog_plus(self):
         if self._inverted:
