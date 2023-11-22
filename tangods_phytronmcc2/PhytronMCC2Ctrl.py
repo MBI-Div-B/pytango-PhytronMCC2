@@ -35,6 +35,9 @@ class PhytronMCC2Ctrl(Device):
         self.serial = serial.Serial()
         self.serial.baudrate = self.Baudrate
         self.serial.port = self.Port
+        self.serial.parity = serial.PARITY_NONE
+        self.serial.bytesize = 8
+        self.serial.stopbits = 1
         self.serial.timeout = 0
 
         # open serial connection
@@ -57,12 +60,11 @@ class PhytronMCC2Ctrl(Device):
         self.debug_stream("write command: {:s}".format(cmd))
         
         self.serial.write(cmd.encode("utf-8"))
-        self.serial.flush()
         res = ""
         while not self.__ETX in res:
+            self.serial.flush()
             line = self.serial.readline().decode("utf-8")
             res += line
-            self.serial.flush()
 
         self.debug_stream("read response: {:s}".format(res))
         if self.__ACK in res:
