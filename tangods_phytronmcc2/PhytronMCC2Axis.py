@@ -308,8 +308,15 @@ class PhytronMCC2Axis(Device):
 
             if self._statusbits[8]:
                 self.set_state(DevState.ON)
-                if any([self._statusbits[n] for n in [1, 2, 4, 5]]):
+                if any([self._statusbits[n] for n in [1, 2]]):
+                    self.set_state(DevState.ALARM)                
+                elif (
+                    any([self._statusbits[n] for n in [4, 5]])
+                    and int(self._all_parameters["P01R"]) > 0
+                ):
+                    # no alarm for rotational stages
                     self.set_state(DevState.ALARM)
+
                 if any([self._statusbits[n] for n in [0, 6, 7]]):
                     self.set_state(DevState.FAULT)
             else:
