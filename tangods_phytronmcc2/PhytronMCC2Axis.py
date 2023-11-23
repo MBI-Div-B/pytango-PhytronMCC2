@@ -187,11 +187,15 @@ class PhytronMCC2Axis(Device):
     )
 
     backlash_compensation = attribute(
-        dtype="int",
+        dtype="float",
         label="backlash compensation",
         unit="steps",
         access=AttrWriteType.READ_WRITE,
         display_level=DispLevel.EXPERT,
+        doc=(
+            "positive values result in compensation\n"
+            "only for negative moves and vice versa"
+        )
     )
 
     type_of_movement = attribute(
@@ -456,17 +460,21 @@ class PhytronMCC2Axis(Device):
         self.send_cmd("P45S{:d}".format(res))
 
     def read_backlash_compensation(self):
-        ret = int(self._all_parameters["P25R"])
+        # backlash compensation is internally stored in steps  
+        ret = float(self._all_parameters["P25R"])/self._steps_per_unit
         if self._inverted:
-            return -1 * ret
+            return 1 * ret
         else:
-            return ret
+            return -1* ret
 
     @update_parameters(25)
     def write_backlash_compensation(self, value):
         if self._inverted:
+            value = 1 * value
+        else:
             value = -1 * value
-        self.send_cmd("P25S{:d}".format(int(value)))
+        # backlash compensation is internally stored in steps
+        self.send_cmd("P25S{:d}".format(int(value*self._steps_per_unit)))
 
     def read_type_of_movement(self):
         return MovementType(int(self._all_parameters["P01R"]))
@@ -476,7 +484,7 @@ class PhytronMCC2Axis(Device):
         self.send_cmd("P01S{:d}".format(int(value)))
 
     def read_movement_unit(self):
-        return self._unit
+        return MovementUnit(int(self._all_parameters["P02R"])-1)
 
     @update_parameters(2)
     def write_movement_unit(self, value):
@@ -494,7 +502,11 @@ class PhytronMCC2Axis(Device):
 
     # internal methods
     def set_display_unit(self):
-        attributes = [b"position", b"last_position"]
+        attributes = [
+            b"position",
+            b"last_position",
+            b"backlash_compensation"
+            ]
         for attr in attributes:
             ac3 = self.get_attribute_config_3(attr)
             ac3[0].unit = self._unit.name.encode("utf-8")
