@@ -5,37 +5,15 @@
 from tango import Database, DevFailed, AttrWriteType, DevState, DeviceProxy, DispLevel
 from tango.server import device_property
 from tango.server import Device, attribute, command
-from enum import IntEnum
 import time
 
 
-class MovementType(IntEnum):
-    rotational = 0
-    linear = 1
-
-
-class MovementUnit(IntEnum):
-    steps = 0
-    mm = 1
-    inch = 2
-    degree = 3
-
-
-class InitiatorType(IntEnum):
-    NCC = 0
-    NOC = 1
-
-
-class StepResolution(IntEnum):
-    step_1_1 = 0 # 1
-    step_1_2 = 1 # 2
-    step_1_4 = 2 # 4
-    step_1_8 = 3 # 8
-    step_1_10 = 4 # 10
-    step_1_16 = 5 # 16
-    step_1_128 = 6 # 128
-    step_1_256 = 7 # 256
-
+_MOVEMENT_UNITS = [
+    "steps",
+    "mm",
+    "inch",
+    "degree"
+]
 
 _PHY_AXIS_STATUS_CODES = [
     "Power stage error",  # 0
@@ -142,6 +120,7 @@ class PhytronMCC2Axis(Device):
         access=AttrWriteType.READ_WRITE,
         display_level=DispLevel.EXPERT,
     )
+
     hold_current = attribute(
         dtype="float",
         label="hold current",
@@ -165,7 +144,8 @@ class PhytronMCC2Axis(Device):
     )
 
     initiator_type = attribute(
-        dtype=InitiatorType,
+        dtype="DevEnum",
+        enum_labels=["NCC", "NOC"],
         label="initiator type",
         access=AttrWriteType.READ_WRITE,
         display_level=DispLevel.EXPERT,
@@ -180,7 +160,17 @@ class PhytronMCC2Axis(Device):
     )
 
     step_resolution = attribute(
-        dtype=StepResolution,
+        dtype="DevEnum",
+        enum_labels=[
+            "1/1", # 1
+            "1/2", # 2
+            "1/4", # 4
+            "1/8", # 8
+            "1/10", # 10
+            "1/16", # 16
+            "1/128", # 128
+            "1/256", # 256
+            ],
         label="step resolution",
         access=AttrWriteType.READ_WRITE,
         display_level=DispLevel.EXPERT
@@ -199,7 +189,8 @@ class PhytronMCC2Axis(Device):
     )
 
     type_of_movement = attribute(
-        dtype=MovementType,
+        dtype="DevEnum",
+        enum_labels=["rotational", "linear"],
         label="type of movement",
         access=AttrWriteType.READ_WRITE,
         display_level=DispLevel.EXPERT,
@@ -210,7 +201,8 @@ class PhytronMCC2Axis(Device):
     )
 
     movement_unit = attribute(
-        dtype=MovementUnit,
+        dtype="DevEnum",
+        enum_labels=_MOVEMENT_UNITS,
         label="unit",
         access=AttrWriteType.READ_WRITE,
         display_level=DispLevel.EXPERT,
@@ -255,8 +247,6 @@ class PhytronMCC2Axis(Device):
             return
 
         self._inverted = False
-        self._unit = MovementUnit.steps
-        self._steps_per_unit = 1.0
         self._last_status_query = 0
         self._all_parameters = {}
 
@@ -398,7 +388,7 @@ class PhytronMCC2Axis(Device):
         self.send_cmd("P40S{:d}".format(value))
 
     def read_initiator_type(self):
-        return InitiatorType(int(self._all_parameters["P27R"]))
+        return int(self._all_parameters["P27R"])
 
     @update_parameters(27)
     def write_initiator_type(self, value):
@@ -406,15 +396,13 @@ class PhytronMCC2Axis(Device):
 
     def read_steps_per_unit(self):
         # inverse of spindle pitch (see manual page 50)
-        self._steps_per_unit = 1 / float(self._all_parameters["P03R"])
-        return self._steps_per_unit
+        return 1 / float(self._all_parameters["P03R"])
 
     @update_parameters(3)
     def write_steps_per_unit(self, value):
         # inverse of spindle pitch (see manual page 50)
         self.send_cmd("P03S{:10.8f}".format(1 / value))
-        # update display unit
-        self.set_display_unit()
+        self.set_display_unit(steps_per_unit=value)
 
     def read_step_resolution(self):
         res = int(self._all_parameters["P45R"])
@@ -461,7 +449,7 @@ class PhytronMCC2Axis(Device):
 
     def read_backlash_compensation(self):
         # backlash compensation is internally stored in steps  
-        ret = float(self._all_parameters["P25R"])/self._steps_per_unit
+        ret = float(self._all_parameters["P25R"])*float(self._all_parameters["P03R"])
         if self._inverted:
             return 1 * ret
         else:
@@ -474,34 +462,25 @@ class PhytronMCC2Axis(Device):
         else:
             value = -1 * value
         # backlash compensation is internally stored in steps
-        self.send_cmd("P25S{:d}".format(int(value*self._steps_per_unit)))
+        self.send_cmd("P25S{:d}".format(int(value/float(self._all_parameters["P03R"]))))
 
     def read_type_of_movement(self):
-        return MovementType(int(self._all_parameters["P01R"]))
+        return int(self._all_parameters["P01R"])
 
     @update_parameters(1)
     def write_type_of_movement(self, value):
         self.send_cmd("P01S{:d}".format(int(value)))
 
     def read_movement_unit(self):
-        return MovementUnit(int(self._all_parameters["P02R"])-1)
+        return int(self._all_parameters["P02R"])-1
 
     @update_parameters(2)
     def write_movement_unit(self, value):
-        res = int(value) + 1
-        self.send_cmd("P02S{:d}".format(res))
-        if res == 1:
-            self._unit = MovementUnit.steps
-        elif res == 2:
-            self._unit = MovementUnit.mm
-        elif res == 3:
-            self._unit = MovementUnit.inch
-        elif res == 4:
-            self._unit = MovementUnit.degree
-        self.set_display_unit()
+        self.send_cmd("P02S{:d}".format(int(value)+1))
+        self.set_display_unit(unit=_MOVEMENT_UNITS[value])
 
     # internal methods
-    def set_display_unit(self):
+    def set_display_unit(self, unit="", steps_per_unit=0):
         attributes = [
             b"position",
             b"last_position",
@@ -509,11 +488,13 @@ class PhytronMCC2Axis(Device):
             ]
         for attr in attributes:
             ac3 = self.get_attribute_config_3(attr)
-            ac3[0].unit = self._unit.name.encode("utf-8")
-            if (1 / self._steps_per_unit % 1) == 0.0:
-                ac3[0].format = b"%8d"
-            else:
-                ac3[0].format = b"%8.3f"
+            if len(unit) > 0:
+                ac3[0].unit = unit.encode("utf-8")
+            if steps_per_unit > 0:
+                if (1 / steps_per_unit % 1) == 0.0:
+                    ac3[0].format = "%8d"
+                else:
+                    ac3[0].format = "%8.3f"
             self.set_attribute_config_3(ac3)
 
     def _send_cmd(self, cmd_str):
