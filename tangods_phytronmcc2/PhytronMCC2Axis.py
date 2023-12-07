@@ -228,6 +228,7 @@ class PhytronMCC2Axis(Device):
 
     def init_device(self):
         super().init_device()
+        self.set_state(DevState.INIT)
         self.info_stream("init_device()")
 
         if self.Axis == 0:

@@ -27,9 +27,9 @@ class PhytronMCC2Ctrl(Device):
     __ETX = chr(3)  # end of text
 
     def init_device(self):
+        super().init_device()
+        self.set_state(DevState.INIT)
         self.info_stream("init_device()")
-        self.get_device_properties(self.get_device_class())
-        self.set_state(DevState.OFF)
 
         # configure serial
         self.serial = serial.Serial()
