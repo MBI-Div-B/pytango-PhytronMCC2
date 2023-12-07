@@ -8,6 +8,8 @@ from tango.server import Device, attribute, command
 import time
 
 
+_STEP_RESOLUTION = [1, 2, 4, 8, 10, 16, 128, 256]
+
 _MOVEMENT_UNITS = [
     "steps",
     "mm",
@@ -407,46 +409,11 @@ class PhytronMCC2Axis(Device):
 
     def read_step_resolution(self):
         res = int(self._all_parameters["P45R"])
-        if res == 1:
-            value = 0
-        elif res == 2:
-            value = 1
-        elif res == 4:
-            value = 2
-        elif res == 8:
-            value = 3
-        elif res == 10:
-            value = 4
-        elif res == 16:
-            value = 5
-        elif res == 128:
-            value = 6
-        elif res == 256:
-            value = 7
-        return value
+        return _STEP_RESOLUTION.index(res)
 
     @update_parameters(45)
     def write_step_resolution(self, value):
-        if value == 0:
-            res = 1
-        elif value == 1:
-            res = 2
-        elif value == 2:
-            res = 4
-        elif value == 3:
-            res = 8
-        elif value == 4:
-            res = 10
-        elif value == 5:
-            res = 16
-        elif value == 6:
-            res = 128
-        elif value == 7:
-            res = 256
-
-        if res not in [1, 2, 4, 8, 10, 16, 128, 256]:
-            return "input not in [1, 2, 4, 8, 10, 16, 128, 256]"
-        self.send_cmd("P45S{:d}".format(res))
+        self.send_cmd("P45S{:d}".format(_STEP_RESOLUTION[value]))
 
     def read_backlash_compensation(self):
         # backlash compensation is internally stored in steps  
