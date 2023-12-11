@@ -89,14 +89,16 @@ class PhytronMCC2Axis(Device):
         dtype="bool",
         label="inverted",
         memorized=True,
+        hw_memorized=True,
         access=AttrWriteType.READ_WRITE,
         display_level=DispLevel.EXPERT,
     )
 
     acceleration = attribute(
-        dtype="int",
+        dtype="float",
+        format="%8.3f",
         label="acceleration",
-        unit="Hz",
+        unit="steps/s²",
         min_value=4000,
         max_value=500000,
         access=AttrWriteType.READ_WRITE,
@@ -104,9 +106,10 @@ class PhytronMCC2Axis(Device):
     )
 
     velocity = attribute(
-        dtype="int",
+        dtype="float",
+        format="%8.3f",
         label="velocity",
-        unit="Hz",
+        unit="steps/s",
         min_value=0,
         max_value=40000,
         access=AttrWriteType.READ_WRITE,
@@ -114,9 +117,10 @@ class PhytronMCC2Axis(Device):
     )
 
     homing_velocity = attribute(
-        dtype="int",
+        dtype="float",
+        format="%8.3f",
         label="homing velocity",
-        unit="Hz",
+        unit="steps/s",
         min_value=0,
         max_value=40000,
         access=AttrWriteType.READ_WRITE,
@@ -255,19 +259,12 @@ class PhytronMCC2Axis(Device):
 
         # read all parameters
         self.read_all_parameters()
+        # update units and formatting
+        self.set_display_unit(
+            unit=_MOVEMENT_UNITS[int(self._all_parameters['P02R'])-1],
+            steps_per_unit=1/float(self._all_parameters['P03R'])
+        )
 
-        # read memorized attributes from Database
-        self.db = Database()
-        try:
-            attr = self.db.get_device_attribute_property(
-                self.get_name(), ["inverted"]
-            )
-            if attr["inverted"]["__value"][0] == "true":
-                self._inverted = True
-            else:
-                self._inverted = False
-        except Exception:
-            self._inverted = False
         self.set_state(DevState.ON)
 
     def delete_device(self):
@@ -350,25 +347,28 @@ class PhytronMCC2Axis(Device):
         self._inverted = bool(value)
 
     def read_acceleration(self):
-        return int(self._all_parameters["P15R"])
+        return int(self._all_parameters["P15R"])*float(self._all_parameters["P03R"])
 
     @update_parameters(15)
     def write_acceleration(self, value):
-        self.send_cmd("P15S{:d}".format(value))
+        acceleration = int(value/float(self._all_parameters["P03R"]))
+        self.send_cmd("P15S{:d}".format(acceleration))
 
     def read_velocity(self):
-        return int(self._all_parameters["P14R"])
+        return int(self._all_parameters["P14R"])*float(self._all_parameters["P03R"])
 
     @update_parameters(14)
     def write_velocity(self, value):
-        self.send_cmd("P14S{:d}".format(value))
+        velocity = int(value/float(self._all_parameters["P03R"]))
+        self.send_cmd("P14S{:d}".format(velocity))
 
     def read_homing_velocity(self):
-        return int(self._all_parameters["P08R"])
+        return int(self._all_parameters["P08R"])*float(self._all_parameters["P03R"])
 
     @update_parameters(8)
     def write_homing_velocity(self, value):
-        self.send_cmd("P08S{:d}".format(value))
+        velocity = int(value/float(self._all_parameters["P03R"]))
+        self.send_cmd("P08S{:d}".format(velocity))
 
     def read_run_current(self):
         return float(self._all_parameters["P41R"]) / 10
@@ -405,7 +405,10 @@ class PhytronMCC2Axis(Device):
     def write_steps_per_unit(self, value):
         # inverse of spindle pitch (see manual page 50)
         self.send_cmd("P03S{:10.8f}".format(1 / value))
-        self.set_display_unit(steps_per_unit=value)
+        self.set_display_unit(
+            unit=_MOVEMENT_UNITS[int(self._all_parameters['P02R'])-1],
+            steps_per_unit=value
+            )
 
     def read_step_resolution(self):
         res = int(self._all_parameters["P45R"])
@@ -445,24 +448,39 @@ class PhytronMCC2Axis(Device):
     @update_parameters(2)
     def write_movement_unit(self, value):
         self.send_cmd("P02S{:d}".format(int(value)+1))
-        self.set_display_unit(unit=_MOVEMENT_UNITS[value])
+        self.set_display_unit(
+            unit=_MOVEMENT_UNITS[value],
+            steps_per_unit=1/float(self._all_parameters['P03R'])
+            )
 
     # internal methods
     def set_display_unit(self, unit="", steps_per_unit=0):
         attributes = [
             b"position",
             b"last_position",
-            b"backlash_compensation"
+            b"backlash_compensation",
+            b"velocity",
+            b"homing_velocity",
+            b"acceleration",
             ]
         for attr in attributes:
             ac3 = self.get_attribute_config_3(attr)
-            if len(unit) > 0:
-                ac3[0].unit = unit.encode("utf-8")
-            if steps_per_unit > 0:
-                if (1 / steps_per_unit % 1) == 0.0:
-                    ac3[0].format = "%8d"
-                else:
-                    ac3[0].format = "%8.3f"
+            if attr == b"velocity" or attr == b"homing_velocity":
+                unit_set = unit + "/s"
+                ac3[0].min_value = str(0)
+                ac3[0].max_value = str(40000 / steps_per_unit)
+            elif attr == b"acceleration":
+                unit_set = unit + "/s\u0032" # "" # unit + u"/s\u0032"
+                ac3[0].min_value = str(4000 / steps_per_unit)
+                ac3[0].max_value = str(500000 / steps_per_unit)
+            else:
+                unit_set = unit
+            ac3[0].unit = unit_set.encode("utf-8")
+    
+            if (1 / steps_per_unit % 1) == 0.0:
+                ac3[0].format = "%8d"
+            else:
+                ac3[0].format = "%8.3f"
             self.set_attribute_config_3(ac3)
 
     def _send_cmd(self, cmd_str):
