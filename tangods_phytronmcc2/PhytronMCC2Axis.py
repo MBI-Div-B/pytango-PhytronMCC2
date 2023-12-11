@@ -98,7 +98,7 @@ class PhytronMCC2Axis(Device):
         dtype="float",
         format="%8.3f",
         label="acceleration",
-        unit="steps/s²",
+        unit="steps/s\u0032",
         min_value=4000,
         max_value=500000,
         access=AttrWriteType.READ_WRITE,
@@ -470,7 +470,7 @@ class PhytronMCC2Axis(Device):
                 ac3[0].min_value = str(0)
                 ac3[0].max_value = str(40000 / steps_per_unit)
             elif attr == b"acceleration":
-                unit_set = unit + "/s\u0032" # "" # unit + u"/s\u0032"
+                unit_set = unit + "/s\u0032"
                 ac3[0].min_value = str(4000 / steps_per_unit)
                 ac3[0].max_value = str(500000 / steps_per_unit)
             else:
